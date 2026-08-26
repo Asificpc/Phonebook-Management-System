@@ -4,116 +4,299 @@
 #include <conio.h>
 #include <windows.h>
 #include <ctype.h>
+
 #define MAX_CONTACTS 100
 
 struct Contact
 {
-    char name[50];   // Name of the contact
-    char mobile[12]; // Mobile number of the contact (11 digits + null terminator)
-    char email[100]; // Email address of the contact
-    int favorite;   // Flag to indicate if the contact is a favorite
+    char name[50];
+    char mobile[12];
+    char email[100];
+    int favorite;
 };
 
-struct Phonebook {
+struct Phonebook
+{
     struct Contact contacts[MAX_CONTACTS];
     int count;
 };
 
-struct Phonebook phonebook = {{}, 0};  // Main phonebook
-struct Phonebook backup = {{}, 0};     // Backup for undo functionality
+struct Phonebook phonebook = {{{0}}, 0};
+struct Phonebook backup = {{{0}}, 0};
 
-
-// Function prototypes
-void menu();
-void addContact();
-void searchByName();
-void searchByNumber();
-void postCaseMenu();
-void deleteRecord();
-void listContactsAlphabetically();
-void modifyContact();
-void markAsFavorite();
-void listFavorites();
+/* Function Prototypes */
+void menu(void);
+void addContact(void);
+void searchByName(void);
+void searchByNumber(void);
+void postCaseMenu(void);
+void deleteRecord(void);
+void listContactsAlphabetically(void);
+void modifyContact(void);
+void markAsFavorite(void);
+void listFavorites(void);
 void toLowerCase(const char *source, char *dest);
-void saveBackup();
-void undoLastAction();
-void loadContacts();
+void saveBackup(void);
+void undoLastAction(void);
+void loadContacts(void);
+void saveContacts(void);
+void clearInputBuffer(void);
+int isValidMobile(const char *mobile);
+int isValidEmail(const char *email);
 
-
-
-int main()
+/* Clear input buffer */
+void clearInputBuffer(void)
 {
-    loadContacts(); // Load contacts from the file
-    system("color 4f");
-    menu();
+    int c;
+
+    while ((c = getchar()) != '\n' && c != EOF)
+    {
+        /* Clear remaining input */
+    }
+}
+
+/* Convert string to lowercase */
+void toLowerCase(const char *source, char *dest)
+{
+    int i = 0;
+
+    while (source[i] != '\0')
+    {
+        dest[i] = (char)tolower((unsigned char)source[i]);
+        i++;
+    }
+
+    dest[i] = '\0';
+}
+
+/* Validate mobile number */
+int isValidMobile(const char *mobile)
+{
+    int i;
+
+    if (strlen(mobile) != 11)
+        return 0;
+
+    for (i = 0; i < 11; i++)
+    {
+        if (!isdigit((unsigned char)mobile[i]))
+            return 0;
+    }
+
+    return 1;
+}
+
+/* Validate email */
+int isValidEmail(const char *email)
+{
+    const char *at;
+    const char *dot;
+
+    at = strchr(email, '@');
+    dot = strrchr(email, '.');
+
+    if (at == NULL || dot == NULL)
+        return 0;
+
+    if (at == email)
+        return 0;
+
+    if (dot < at)
+        return 0;
+
+    if (*(dot + 1) == '\0')
+        return 0;
+
+    if (strstr(email, "@gmail.com") != NULL ||
+        strstr(email, "@yahoo.com") != NULL ||
+        strstr(email, "@outlook.com") != NULL ||
+        strstr(email, "@hotmail.com") != NULL)
+    {
+        return 1;
+    }
+
     return 0;
 }
 
-void menu()
+/* Save contacts to file */
+void saveContacts(void)
 {
-    system("cls");
-    printf("\t\t********** PHONEBOOK MENU **********\n");
-    printf("\n1. Add New\t2. List\t\t3. Search\n4. Modify\t5. Delete\t6. Mark as Favorites\n7.Favorites List\t\t8. Undo Last Action\n\t\t9. Exit\n");
-    printf("\nSelect an option: ");
-    printf("\n");
+    FILE *file;
+    int i;
 
-    switch (getch())
+    file = fopen("contacts.txt", "w");
+
+    if (file == NULL)
+    {
+        printf("Error opening contacts.txt for writing!\n");
+        return;
+    }
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        fprintf(file,
+                "Name: %s, Mobile: %s, Email: %s, Favorite: %d\n",
+                phonebook.contacts[i].name,
+                phonebook.contacts[i].mobile,
+                phonebook.contacts[i].email,
+                phonebook.contacts[i].favorite);
+    }
+
+    fclose(file);
+}
+
+/* Load contacts from file */
+void loadContacts(void)
+{
+    FILE *file;
+    struct Contact contact;
+
+    file = fopen("contacts.txt", "r");
+
+    if (file == NULL)
+    {
+        return;
+    }
+
+    phonebook.count = 0;
+
+    while (phonebook.count < MAX_CONTACTS &&
+           fscanf(file,
+                  "Name: %49[^,], Mobile: %11[^,], Email: %99[^,], Favorite: %d\n",
+                  contact.name,
+                  contact.mobile,
+                  contact.email,
+                  &contact.favorite) == 4)
+    {
+        phonebook.contacts[phonebook.count] = contact;
+        phonebook.count++;
+    }
+
+    fclose(file);
+}
+
+/* Save current state for undo */
+void saveBackup(void)
+{
+    backup = phonebook;
+}
+
+/* Undo last action */
+void undoLastAction(void)
+{
+    phonebook = backup;
+    saveContacts();
+
+    printf("\nLast action undone successfully!\n");
+}
+
+/* Main function */
+int main(void)
+{
+    loadContacts();
+
+    system("color 4F");
+
+    menu();
+
+    return 0;
+}
+
+/* Main menu */
+void menu(void)
+{
+    char choice;
+
+    system("cls");
+
+    printf("\n\t\t********** PHONEBOOK MENU **********\n\n");
+
+    printf("1. Add New\t\t2. List\n");
+    printf("3. Search\t\t4. Modify\n");
+    printf("5. Delete\t\t6. Mark as Favorite\n");
+    printf("7. Favorites List\t8. Undo Last Action\n");
+    printf("9. Exit\n");
+
+    printf("\nSelect an option: ");
+
+    choice = getch();
+
+    switch (choice)
     {
     case '1':
         addContact();
         postCaseMenu();
         break;
+
     case '2':
         listContactsAlphabetically();
         postCaseMenu();
         break;
+
     case '3':
     {
-        int choice;
-        printf("How do you want to search?\n1. By Name\n2. By Number\n");
-        if (scanf("%d", &choice) != 1)
-        { // Check if input is valid
-            printf("Invalid input. Please enter a number.\n");
+        int searchChoice;
+
+        printf("\nHow do you want to search?\n");
+        printf("1. By Name\n");
+        printf("2. By Number\n");
+        printf("Enter your choice: ");
+
+        if (scanf("%d", &searchChoice) != 1)
+        {
+            clearInputBuffer();
+            printf("Invalid input!\n");
+            postCaseMenu();
             break;
         }
-        if (choice == 1)
+
+        clearInputBuffer();
+
+        if (searchChoice == 1)
         {
             searchByName();
         }
-        else if (choice == 2)
+        else if (searchChoice == 2)
         {
             searchByNumber();
         }
         else
         {
-            printf("Invalid choice. Please select 1 or 2.\n");
+            printf("Invalid choice!\n");
         }
+
         postCaseMenu();
         break;
     }
+
     case '4':
         modifyContact();
         postCaseMenu();
         break;
+
     case '5':
         deleteRecord();
         postCaseMenu();
         break;
+
     case '6':
         markAsFavorite();
         postCaseMenu();
         break;
+
     case '7':
         listFavorites();
         postCaseMenu();
         break;
+
     case '8':
         undoLastAction();
         postCaseMenu();
         break;
+
     case '9':
         exit(0);
-        break;
+
     default:
         printf("\nInvalid option! Try again.\n");
         getch();
@@ -121,617 +304,581 @@ void menu()
     }
 }
 
+/* Add a new contact */
+void addContact(void)
+{
+    struct Contact contact;
+    int i;
 
-
-// Save the current state of the phonebook to the backup
-void saveBackup() {
-    backup = phonebook;
-    printf("Backup saved!\n");
-}
-
-// Undo the last action by restoring the backup
-void undoLastAction() {
-    phonebook = backup;
-     // Write the restored state to the file
-    FILE *file = fopen("contacts.txt", "w");
-    if (file == NULL) {
-        printf("Error writing to file during undo!\n");
+    if (phonebook.count >= MAX_CONTACTS)
+    {
+        printf("\nPhonebook is full! Maximum %d contacts allowed.\n",
+               MAX_CONTACTS);
         return;
     }
-    for (int i = 0; i < phonebook.count; i++) {
-        fprintf(file, "Name: %s, Mobile: %s, Email: %s, Favorite: %d\n",
-                phonebook.contacts[i].name, phonebook.contacts[i].mobile,
-                phonebook.contacts[i].email, phonebook.contacts[i].favorite);
+
+    saveBackup();
+
+    printf("\nEnter Name: ");
+
+    fgets(contact.name, sizeof(contact.name), stdin);
+    contact.name[strcspn(contact.name, "\n")] = '\0';
+
+    if (strlen(contact.name) == 0)
+    {
+        printf("Name cannot be empty!\n");
+        return;
     }
-    fclose(file);
-    printf("Last action undone successfully!\n");
+
+    /* Mobile number */
+    do
+    {
+        printf("Enter Mobile Number (11 digits): ");
+
+        fgets(contact.mobile, sizeof(contact.mobile), stdin);
+        contact.mobile[strcspn(contact.mobile, "\n")] = '\0';
+
+        if (!isValidMobile(contact.mobile))
+        {
+            printf("Invalid mobile number. Please enter exactly 11 digits.\n");
+        }
+
+    } while (!isValidMobile(contact.mobile));
+
+    /* Check duplicate mobile */
+    for (i = 0; i < phonebook.count; i++)
+    {
+        if (strcmp(phonebook.contacts[i].mobile, contact.mobile) == 0)
+        {
+            printf("This mobile number already exists!\n");
+            return;
+        }
+    }
+
+    /* Email */
+    do
+    {
+        printf("Enter Email Address: ");
+
+        fgets(contact.email, sizeof(contact.email), stdin);
+        contact.email[strcspn(contact.email, "\n")] = '\0';
+
+        if (!isValidEmail(contact.email))
+        {
+            printf("Invalid email address!\n");
+            printf("Allowed domains: gmail.com, yahoo.com, outlook.com, hotmail.com\n");
+        }
+
+    } while (!isValidEmail(contact.email));
+
+    contact.favorite = 0;
+
+    phonebook.contacts[phonebook.count] = contact;
+    phonebook.count++;
+
+    saveContacts();
+
+    printf("\nContact saved successfully!\n");
 }
 
+/* Search contact by name */
+void searchByName(void)
+{
+    char searchName[50];
+    char searchLower[50];
+    char nameLower[50];
+    int found = 0;
+    int i;
 
-void toLowerCase(const char *source, char *dest) {
-    int i = 0;
-    while (source[i] != '\0') {
-        dest[i] = tolower(source[i]); // Convert each character to lowercase
-        i++;
+    printf("\nEnter Name to Search: ");
+
+    fgets(searchName, sizeof(searchName), stdin);
+    searchName[strcspn(searchName, "\n")] = '\0';
+
+    toLowerCase(searchName, searchLower);
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        toLowerCase(phonebook.contacts[i].name, nameLower);
+
+        if (strcmp(nameLower, searchLower) == 0)
+        {
+            printf("\nContact Found!\n");
+            printf("----------------------------\n");
+            printf("Name: %s\n", phonebook.contacts[i].name);
+            printf("Mobile: %s\n", phonebook.contacts[i].mobile);
+            printf("Email: %s\n", phonebook.contacts[i].email);
+            printf("Favorite: %s\n",
+                   phonebook.contacts[i].favorite ? "Yes" : "No");
+
+            found = 1;
+            break;
+        }
     }
-    dest[i] = '\0'; // Null-terminate the destination string
+
+    if (!found)
+    {
+        printf("\nNo contact found with the name: %s\n", searchName);
+    }
 }
 
-void postCaseMenu()
+/* Search contact by mobile number */
+void searchByNumber(void)
+{
+    char searchNumber[20];
+    int found = 0;
+    int i;
+
+    printf("\nEnter Mobile Number to Search: ");
+
+    fgets(searchNumber, sizeof(searchNumber), stdin);
+    searchNumber[strcspn(searchNumber, "\n")] = '\0';
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        if (strcmp(phonebook.contacts[i].mobile, searchNumber) == 0)
+        {
+            printf("\nContact Found!\n");
+            printf("----------------------------\n");
+            printf("Name: %s\n", phonebook.contacts[i].name);
+            printf("Mobile: %s\n", phonebook.contacts[i].mobile);
+            printf("Email: %s\n", phonebook.contacts[i].email);
+            printf("Favorite: %s\n",
+                   phonebook.contacts[i].favorite ? "Yes" : "No");
+
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        printf("\nNo contact found with the mobile number: %s\n",
+               searchNumber);
+    }
+}
+
+/* Delete contact */
+void deleteRecord(void)
+{
+    char searchItem[100];
+    char searchLower[100];
+    char nameLower[50];
+    int found = 0;
+    int i;
+    int j;
+
+    printf("\nEnter the name or mobile number of the contact to delete: ");
+
+    fgets(searchItem, sizeof(searchItem), stdin);
+    searchItem[strcspn(searchItem, "\n")] = '\0';
+
+    toLowerCase(searchItem, searchLower);
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        toLowerCase(phonebook.contacts[i].name, nameLower);
+
+        if (strcmp(nameLower, searchLower) == 0 ||
+            strcmp(phonebook.contacts[i].mobile, searchItem) == 0)
+        {
+            saveBackup();
+
+            printf("\nContact '%s' deleted successfully!\n",
+                   phonebook.contacts[i].name);
+
+            for (j = i; j < phonebook.count - 1; j++)
+            {
+                phonebook.contacts[j] = phonebook.contacts[j + 1];
+            }
+
+            phonebook.count--;
+
+            saveContacts();
+
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        printf("\nNo contact found with: %s\n", searchItem);
+    }
+}
+
+/* List contacts alphabetically */
+void listContactsAlphabetically(void)
+{
+    struct Contact sortedContacts[MAX_CONTACTS];
+    struct Contact temp;
+    int i;
+    int j;
+
+    if (phonebook.count == 0)
+    {
+        printf("\nNo contacts found in the phonebook.\n");
+        return;
+    }
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        sortedContacts[i] = phonebook.contacts[i];
+    }
+
+    for (i = 0; i < phonebook.count - 1; i++)
+    {
+        for (j = i + 1; j < phonebook.count; j++)
+        {
+            if (strcmp(sortedContacts[i].name,
+                       sortedContacts[j].name) > 0)
+            {
+                temp = sortedContacts[i];
+                sortedContacts[i] = sortedContacts[j];
+                sortedContacts[j] = temp;
+            }
+        }
+    }
+
+    printf("\n\t\tCONTACTS IN PHONEBOOK\n");
+    printf("------------------------------------------------------------\n");
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        printf("Name: %s\n", sortedContacts[i].name);
+        printf("Mobile: %s\n", sortedContacts[i].mobile);
+        printf("Email: %s\n", sortedContacts[i].email);
+        printf("Favorite: %s\n",
+               sortedContacts[i].favorite ? "Yes" : "No");
+        printf("------------------------------------------------------------\n");
+    }
+}
+
+/* Modify contact */
+void modifyContact(void)
+{
+    char searchItem[100];
+    char searchLower[100];
+    char nameLower[50];
+    int found = 0;
+    int choice;
+    int i;
+
+    printf("\nEnter name or mobile number of the contact to modify: ");
+
+    fgets(searchItem, sizeof(searchItem), stdin);
+    searchItem[strcspn(searchItem, "\n")] = '\0';
+
+    toLowerCase(searchItem, searchLower);
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        toLowerCase(phonebook.contacts[i].name, nameLower);
+
+        if (strcmp(nameLower, searchLower) == 0 ||
+            strcmp(phonebook.contacts[i].mobile, searchItem) == 0)
+        {
+            found = 1;
+
+            printf("\nContact Found!\n");
+            printf("----------------------------\n");
+            printf("1. Name: %s\n", phonebook.contacts[i].name);
+            printf("2. Mobile: %s\n", phonebook.contacts[i].mobile);
+            printf("3. Email: %s\n", phonebook.contacts[i].email);
+
+            printf("\nWhat do you want to modify?\n");
+            printf("1. Name\n");
+            printf("2. Mobile\n");
+            printf("3. Email\n");
+            printf("4. All\n");
+            printf("Enter your choice: ");
+
+            if (scanf("%d", &choice) != 1)
+            {
+                clearInputBuffer();
+                printf("Invalid input!\n");
+                return;
+            }
+
+            clearInputBuffer();
+
+            saveBackup();
+
+            switch (choice)
+            {
+            case 1:
+                printf("Enter new name: ");
+
+                fgets(phonebook.contacts[i].name,
+                      sizeof(phonebook.contacts[i].name),
+                      stdin);
+
+                phonebook.contacts[i].name[
+                    strcspn(phonebook.contacts[i].name, "\n")] = '\0';
+
+                break;
+
+            case 2:
+                do
+                {
+                    printf("Enter new mobile number: ");
+
+                    fgets(phonebook.contacts[i].mobile,
+                          sizeof(phonebook.contacts[i].mobile),
+                          stdin);
+
+                    phonebook.contacts[i].mobile[
+                        strcspn(phonebook.contacts[i].mobile, "\n")] = '\0';
+
+                    if (!isValidMobile(phonebook.contacts[i].mobile))
+                    {
+                        printf("Invalid mobile number!\n");
+                    }
+
+                } while (!isValidMobile(phonebook.contacts[i].mobile));
+
+                break;
+
+            case 3:
+                do
+                {
+                    printf("Enter new email: ");
+
+                    fgets(phonebook.contacts[i].email,
+                          sizeof(phonebook.contacts[i].email),
+                          stdin);
+
+                    phonebook.contacts[i].email[
+                        strcspn(phonebook.contacts[i].email, "\n")] = '\0';
+
+                    if (!isValidEmail(phonebook.contacts[i].email))
+                    {
+                        printf("Invalid email address!\n");
+                    }
+
+                } while (!isValidEmail(phonebook.contacts[i].email));
+
+                break;
+
+            case 4:
+                printf("Enter new name: ");
+
+                fgets(phonebook.contacts[i].name,
+                      sizeof(phonebook.contacts[i].name),
+                      stdin);
+
+                phonebook.contacts[i].name[
+                    strcspn(phonebook.contacts[i].name, "\n")] = '\0';
+
+                do
+                {
+                    printf("Enter new mobile number: ");
+
+                    fgets(phonebook.contacts[i].mobile,
+                          sizeof(phonebook.contacts[i].mobile),
+                          stdin);
+
+                    phonebook.contacts[i].mobile[
+                        strcspn(phonebook.contacts[i].mobile, "\n")] = '\0';
+
+                    if (!isValidMobile(phonebook.contacts[i].mobile))
+                    {
+                        printf("Invalid mobile number!\n");
+                    }
+
+                } while (!isValidMobile(phonebook.contacts[i].mobile));
+
+                do
+                {
+                    printf("Enter new email: ");
+
+                    fgets(phonebook.contacts[i].email,
+                          sizeof(phonebook.contacts[i].email),
+                          stdin);
+
+                    phonebook.contacts[i].email[
+                        strcspn(phonebook.contacts[i].email, "\n")] = '\0';
+
+                    if (!isValidEmail(phonebook.contacts[i].email))
+                    {
+                        printf("Invalid email address!\n");
+                    }
+
+                } while (!isValidEmail(phonebook.contacts[i].email));
+
+                break;
+
+            default:
+                printf("Invalid choice!\n");
+                return;
+            }
+
+            saveContacts();
+
+            printf("\nContact modified successfully!\n");
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        printf("\nNo contact found with: %s\n", searchItem);
+    }
+}
+
+/* Mark contact as favorite */
+void markAsFavorite(void)
+{
+    char searchItem[100];
+    char searchLower[100];
+    char nameLower[50];
+    int found = 0;
+    int i;
+
+    printf("\nEnter name or mobile number of the contact: ");
+
+    fgets(searchItem, sizeof(searchItem), stdin);
+    searchItem[strcspn(searchItem, "\n")] = '\0';
+
+    toLowerCase(searchItem, searchLower);
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        toLowerCase(phonebook.contacts[i].name, nameLower);
+
+        if (strcmp(nameLower, searchLower) == 0 ||
+            strcmp(phonebook.contacts[i].mobile, searchItem) == 0)
+        {
+            saveBackup();
+
+            phonebook.contacts[i].favorite = 1;
+
+            saveContacts();
+
+            printf("\nContact '%s' marked as favorite successfully!\n",
+                   phonebook.contacts[i].name);
+
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        printf("\nNo contact found with: %s\n", searchItem);
+    }
+}
+
+/* List favorite contacts */
+void listFavorites(void)
+{
+    char choice[10];
+    char searchItem[100];
+    char searchLower[100];
+    char nameLower[50];
+    int favoriteCount = 0;
+    int found = 0;
+    int i;
+
+    if (phonebook.count == 0)
+    {
+        printf("\nNo contacts found in the phonebook.\n");
+        return;
+    }
+
+    printf("\n\t\tFAVORITE CONTACTS\n");
+    printf("--------------------------------------------\n");
+
+    for (i = 0; i < phonebook.count; i++)
+    {
+        if (phonebook.contacts[i].favorite == 1)
+        {
+            printf("Name: %s\n", phonebook.contacts[i].name);
+            printf("Mobile: %s\n", phonebook.contacts[i].mobile);
+            printf("Email: %s\n", phonebook.contacts[i].email);
+            printf("--------------------------------------------\n");
+
+            favoriteCount++;
+        }
+    }
+
+    if (favoriteCount == 0)
+    {
+        printf("No favorite contacts found.\n");
+        return;
+    }
+
+    printf("\nDo you want to unmark any favorite contact? (yes/no): ");
+
+    fgets(choice, sizeof(choice), stdin);
+    choice[strcspn(choice, "\n")] = '\0';
+
+    if (strcmp(choice, "yes") == 0 ||
+        strcmp(choice, "Yes") == 0 ||
+        strcmp(choice, "YES") == 0)
+    {
+        printf("\nEnter name or mobile number to unmark: ");
+
+        fgets(searchItem, sizeof(searchItem), stdin);
+        searchItem[strcspn(searchItem, "\n")] = '\0';
+
+        toLowerCase(searchItem, searchLower);
+
+        for (i = 0; i < phonebook.count; i++)
+        {
+            toLowerCase(phonebook.contacts[i].name, nameLower);
+
+            if (phonebook.contacts[i].favorite == 1 &&
+                (strcmp(nameLower, searchLower) == 0 ||
+                 strcmp(phonebook.contacts[i].mobile, searchItem) == 0))
+            {
+                saveBackup();
+
+                phonebook.contacts[i].favorite = 0;
+
+                saveContacts();
+
+                printf("\nContact '%s' unmarked as favorite successfully!\n",
+                       phonebook.contacts[i].name);
+
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            printf("\nNo favorite contact found with: %s\n",
+                   searchItem);
+        }
+    }
+}
+
+/* Post-action menu */
+void postCaseMenu(void)
 {
     int choice;
+
     printf("\nWhat do you want to do now?\n");
     printf("1. Go to Main Menu\n");
     printf("2. Exit\n");
     printf("Enter your choice: ");
 
-    while (scanf("%d", &choice) != 1 || (choice != 1 && choice != 2))
+    while (scanf("%d", &choice) != 1 ||
+           (choice != 1 && choice != 2))
     {
-        fflush(stdin); // Clear invalid input
+        clearInputBuffer();
         printf("Invalid choice. Please enter 1 or 2: ");
     }
 
+    clearInputBuffer();
+
     if (choice == 1)
     {
-        menu(); // Go back to the main menu
+        menu();
     }
     else
     {
-        exit(0); // Exit the program
+        exit(0);
     }
 }
-
-void loadContacts() {
-    FILE *file = fopen("contacts.txt", "r");
-    if (file == NULL) {
-        printf("No existing contacts found. Starting fresh.\n");
-        return;
-    }
-    while (fscanf(file, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite: %d\n",
-                  phonebook.contacts[phonebook.count].name,
-                  phonebook.contacts[phonebook.count].mobile,
-                  phonebook.contacts[phonebook.count].email,
-                  &phonebook.contacts[phonebook.count].favorite) == 4) {
-        phonebook.count++;
-    }
-    fclose(file);
-}
-
-
-// Function to add a new contact
-void addContact()
-{
-    saveBackup(); // Save the current state of the phonebook to the backup
-    FILE *file = fopen("contacts.txt", "a"); // Open the file in append mode
-    if (!file)
-    {
-        printf("Error opening file!\n"); // Error handling for file opening
-        return;
-    }
-
-    struct Contact contact; // Create a struct variable to hold the contact details
-    int valid = 0;          // Flag for validation
-
-    // Input and validation for the name
-    printf("Enter Name: ");
-    fflush(stdin);
-    fgets(contact.name, sizeof(contact.name), stdin);
-    contact.name[strcspn(contact.name, "\n")] = '\0'; // Remove trailing newline
-
-    phonebook.contacts[phonebook.count++] = contact; // Add to in-memory phonebook
-
-    // Input and validation for the mobile number
-    do
-    {
-        printf("Enter Mobile Number (11 digits): ");
-        fflush(stdin);
-        fgets(contact.mobile, sizeof(contact.mobile), stdin);
-        contact.mobile[strcspn(contact.mobile, "\n")] = '\0'; // Remove trailing newline
-
-        // Check if the mobile number has exactly 11 digits and is numeric
-        if (strlen(contact.mobile) == 11 && strspn(contact.mobile, "0123456789") == 11)
-        {
-            valid = 1; // Mark as valid if the conditions are met
-        }
-        else
-        {
-            printf("Invalid mobile number. Please try again.\n");
-        }
-    } while (!valid); // Repeat until the input is valid
-
-    valid = 0; // Reset the validation flag
-
-    // Input and validation for the email address
-    do
-    {
-        printf("Enter Email Address: ");
-        fflush(stdin);
-        fgets(contact.email, sizeof(contact.email), stdin);
-        contact.email[strcspn(contact.email, "\n")] = '\0'; // Remove trailing newline
-
-        // Check if the email ends with allowed domains
-        if (strstr(contact.email, "@gmail.com") ||
-            strstr(contact.email, "@yahoo.com") ||
-            strstr(contact.email, "@outlook.com")|| strstr(contact.email, "@hotmail.com"))
-        {
-            valid = 1; // Mark as valid if the conditions are met
-        }
-        else
-        {
-            printf("Invalid email address. Must end with @gmail.com, @yahoo.com, or @outlook.com.\n");
-        }
-    } while (!valid); // Repeat until the input is valid
-
-    contact.favorite = 0; // Set favorite field to 0 (not favorite) by default
-
-    // Save the contact details to the file
-    fprintf(file, "Name: %s, Mobile: %s, Email: %s, Favorite: %d\n", contact.name, contact.mobile, contact.email, contact.favorite);
-    fclose(file); // Close the file
-
-    printf("Contact saved successfully!\n");
-}
-
-// Function to search a contact by name
-void searchByName()
-{
-    FILE *file = fopen("contacts.txt", "r"); // Open the file in read mode
-    if (!file)
-    {                                    // Check if the file could not be opened
-        printf("Error opening file!\n"); // Error message if file opening fails
-        return;
-    }
-
-    struct Contact contact; // Create a struct variable to hold the contact details
-    char searchName[50];    // To store the name the user wants to search
-    int found = 0;          // Flag to indicate if the contact was found
-
-    // Prompt the user to enter the name to search
-    printf("Enter Name to Search: ");
-    fflush(stdin);                                // Clear input buffer
-    fgets(searchName, sizeof(searchName), stdin); // Get the name from the user
-    searchName[strcspn(searchName, "\n")] = '\0'; // Remove the trailing newline character
-
-    // Loop to read each line from the file and search for the contact
-    while (fscanf(file, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite: %d\n",
-                  contact.name, contact.mobile, contact.email, &contact.favorite) != EOF)
-    {
-        if (strcmp(contact.name, searchName) == 0)
-        { // Compare the input name with the contact's name
-            printf("Found: Name: %s, Mobile: %s, Email: %s, Favorite:%d\n", contact.name, contact.mobile, contact.email, contact.favorite);
-            found = 1; // Mark as found
-            break;     // Exit the loop once the contact is found
-        }
-    }
-
-    // If no contact is found, display a message
-    if (!found)
-    {
-        printf("No contact found with the name: %s\n", searchName);
-    }
-
-    fclose(file); // Close the file
-}
-
-// Function to search a contact by mobile number
-void searchByNumber()
-{
-    FILE *file = fopen("contacts.txt", "r"); // Open the file in read mode
-    if (!file)
-    {                                    // Check if the file could not be opened
-        printf("Error opening file!\n"); // Error message if file opening fails
-        return;
-    }
-
-    struct Contact contact; // Create a struct variable to hold the contact details
-    char searchNumber[12];  // To store the mobile number the user wants to search
-    int found = 0;          // Flag to indicate if the contact was found
-
-    // Prompt the user to enter the mobile number to search
-    printf("Enter Mobile Number to Search: ");
-    fflush(stdin);                                    // Clear input buffer
-    fgets(searchNumber, sizeof(searchNumber), stdin); // Get the mobile number from the user
-    searchNumber[strcspn(searchNumber, "\n")] = '\0'; // Remove the trailing newline character
-
-    // Loop to read each line from the file and search for the contact
-    while (fscanf(file, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite: %d\n",
-                  contact.name, contact.mobile, contact.email, &contact.favorite ) != EOF)
-    {
-        if (strcmp(contact.mobile, searchNumber) == 0)
-        { // Compare the input number with the contact's mobile number
-            printf("Found: Name: %s, Mobile: %s, Email: %s, Favorite:%d\n", contact.name, contact.mobile, contact.email, contact.favorite);
-            found = 1; // Mark as found
-            break;     // Exit the loop once the contact is found
-        }
-    }
-
-    // If no contact is found, display a message
-    if (!found)
-    {
-        printf("No contact found with the mobile number: %s\n", searchNumber);
-    }
-
-    fclose(file); // Close the file
-}
-
-// Function to delete a contact
-
-void deleteRecord()
-{
-    saveBackup(); // Save the current state of the phonebook to the backup
-    struct Contact contact[MAX_CONTACTS];
-    int found = 0, count = 0;
-    char searchItem[50];
-
-    FILE *fileread = fopen("contacts.txt", "r");
-    if (fileread == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    while (fscanf(fileread, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite:%d\n",
-                  contact[count].name, contact[count].mobile, contact[count].email, &contact[count].favorite) == 4)
-    {
-        count++;
-    }
-    fclose(fileread);
-
-    printf("Enter the name of the contact you want to delete: ");
-    fflush(stdin);
-    fgets(searchItem, sizeof(searchItem), stdin);
-    searchItem[strcspn(searchItem, "\n")] = '\0';
-
-    FILE *filewrite = fopen("contacts.txt", "w");
-    if (filewrite == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    for (int i = 0; i < count; i++)
-    {
-        if (strcmp(contact[i].name, searchItem) == 0 || strcmp(contact[i].mobile, searchItem) == 0)
-        {
-            printf("Contact '%s' deleted successfully!\n", contact[i].name);
-            found = 1;
-            continue;
-        }
-        fprintf(filewrite, "Name: %s, Mobile: %s, Email: %s, Favorite:%d\n",
-                contact[i].name, contact[i].mobile, contact[i].email, contact[i].favorite);
-    }
-
-    fclose(filewrite);
-
-    if (!found)
-    {
-        printf("No contact found with the name or mobile number: %s\n", searchItem);
-    }
-}
-
-// Function to list contacts alphabetically
-
-void listContactsAlphabetically()
-{
-    struct Contact contact[MAX_CONTACTS];
-    int count = 0;
-
-    FILE *file = fopen("contacts.txt", "r");
-    if (file == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    while (fscanf(file, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite:%d\n",
-                  contact[count].name, contact[count].mobile, contact[count].email, &contact[count].favorite) == 4)
-    {
-        count++;
-    }
-    fclose(file);
-
-    if (count == 0)
-    {
-        printf("No contacts found in the phonebook.\n");
-        return;
-    }
-
-    struct Contact temp;
-    for (int i = 0; i < count - 1; i++)
-    {
-        for (int j = i + 1; j < count; j++)
-        {
-            if (strcmp(contact[i].name, contact[j].name) > 0)
-            {
-                temp = contact[i];
-                contact[i] = contact[j];
-                contact[j] = temp;
-            }
-        }
-    }
-
-    printf("Contacts in the Phonebook:\n");
-    printf("----------------------------\n");
-    for (int i = 0; i < count; i++)
-    {
-        printf("Name: %s, Mobile: %s, Email: %s, Favorite:%d\n", contact[i].name, contact[i].mobile, contact[i].email, contact[i].favorite);
-    }
-}
-
-// Function to modify a contact
-
-void modifyContact()
-{
-    saveBackup(); // Save the current state of the phonebook to the backup
-    struct Contact contacts[MAX_CONTACTS];
-    int count = 0, found = 0;
-    char searchItem[50];
-
-    FILE *fileread = fopen("contacts.txt", "r");
-    if (fileread == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    while (fscanf(fileread, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite:%d\n",
-                  contacts[count].name, contacts[count].mobile, contacts[count].email, &contacts[count].favorite) == 4)
-    {
-        count++;
-    }
-
-    fclose(fileread);
-
-    printf("Enter name or the mobile number of the contact you want to modify: ");
-    fflush(stdin);
-    fgets(searchItem, sizeof(searchItem), stdin);
-    searchItem[strcspn(searchItem, "\n")] = '\0';
-
-    for (int i = 0; i < count; i++)
-    {
-        if (strcmp(contacts[i].name, searchItem) == 0 || strcmp(contacts[i].mobile, searchItem) == 0)
-        {
-            found = 1;
-
-            // Display the current contact details
-            printf("\nContact Found:\n");
-            printf("1. Name: %s\n", contacts[i].name);
-            printf("2. Mobile: %s\n", contacts[i].mobile);
-            printf("3. Email: %s\n", contacts[i].email);
-
-            printf("\nEnter the field you want to modify (1-4):\n");
-            printf("1. Name\n2. Mobile\n3. Email\n4.All\n");
-            printf("Enter your choice: ");
-
-            int choice;
-
-            while (scanf("%d", &choice) != 1 || (choice < 1 || choice > 4))
-            {
-                fflush(stdin); // Clear invalid input
-                printf("Invalid choice. Please enter a number between 1 and 4: ");
-            }
-
-            fflush(stdin); // Clear input buffer
-
-            switch (choice)
-            {
-            case 1:
-                printf("Enter the new name: ");
-                fgets(contacts[i].name, sizeof(contacts[i].name), stdin);
-                contacts[i].name[strcspn(contacts[i].name, "\n")] = '\0';
-                break;
-
-            case 2:
-                printf("Enter the new mobile number: ");
-                fgets(contacts[i].mobile, sizeof(contacts[i].mobile), stdin);
-                contacts[i].mobile[strcspn(contacts[i].mobile, "\n")] = '\0';
-                break;
-
-            case 3:
-                printf("Enter the new email: ");
-                fgets(contacts[i].email, sizeof(contacts[i].email), stdin);
-                contacts[i].email[strcspn(contacts[i].email, "\n")] = '\0';
-                break;
-
-            case 4:
-                printf("Enter the new name: ");
-                fgets(contacts[i].name, sizeof(contacts[i].name), stdin);
-                contacts[i].name[strcspn(contacts[i].name, "\n")] = '\0';
-
-                printf("Enter the new mobile number: ");
-                fgets(contacts[i].mobile, sizeof(contacts[i].mobile), stdin);
-                contacts[i].mobile[strcspn(contacts[i].mobile, "\n")] = '\0';
-
-                printf("Enter the new email: ");
-                fgets(contacts[i].email, sizeof(contacts[i].email), stdin);
-                contacts[i].email[strcspn(contacts[i].email, "\n")] = '\0';
-                break;
-
-            default:
-                printf("Invalid choice. Please enter a number between 1 and 4.\n");
-                break;
-            }
-
-            printf("Contact modified successfully!\n");
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        printf("No contact found with the name or mobile number: %s\n", searchItem);
-    }
-
-    //Save the modified contacts to the file
-    FILE *filewrite = fopen("contacts.txt", "w");
-    if (filewrite == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    for (int i = 0; i < count; i++)
-    {
-        fprintf(filewrite, "Name: %s, Mobile: %s, Email: %s\n, Favorite:%d\n",
-                contacts[i].name, contacts[i].mobile, contacts[i].email, contacts[i].favorite);
-    }
-
-    fclose(filewrite);
-}
-
-// Function to mark a contact as favorite
-
-void markAsFavorite()
-{
-    saveBackup(); // Save the current state of the phonebook to the backup  
-    struct Contact contacts[MAX_CONTACTS];
-    int count = 0, found = 0;
-    char searchItem[50];
-
-    FILE *fileread = fopen("contacts.txt", "r");
-    if (fileread == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    while (fscanf(fileread, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite:%d\n",
-                  contacts[count].name, contacts[count].mobile, contacts[count].email, &contacts[count].favorite) == 4)
-    {
-        count++;
-    }
-
-    fclose(fileread);
-
-    printf("Enter name or the mobile number of the contact you want to mark as favorite: ");
-    fflush(stdin);
-    fgets(searchItem, sizeof(searchItem), stdin);
-    searchItem[strcspn(searchItem, "\n")] = '\0';
-
-    for (int i = 0; i < count; i++)
-    {
-        if (strcmp(contacts[i].name, searchItem) == 0 || strcmp(contacts[i].mobile, searchItem) == 0)
-        {
-            found = 1;
-            contacts[i].favorite = 1;
-            printf("Contact '%s' marked as favorite successfully!\n", contacts[i].name);
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        printf("No contact found with the name or mobile number: %s\n", searchItem);
-    }
-
-    // Save the modified contacts to the file
-    FILE *filewrite = fopen("contacts.txt", "w");
-    if (filewrite == NULL)
-    {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    for (int i = 0; i < count; i++)
-    {
-        fprintf(filewrite, "Name: %s, Mobile: %s, Email: %s, Favorite:%d\n",
-                contacts[i].name, contacts[i].mobile, contacts[i].email, contacts[i].favorite);
-    }
-
-    fclose(filewrite);
-}
-
-
-// Function to list favorite contacts
-
-void listFavorites() {
-    struct Contact contacts[MAX_CONTACTS];
-    int count = 0;
-
-    FILE *file = fopen("contacts.txt", "r");
-    if (file == NULL) {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    // Read contacts from the file
-    while (fscanf(file, "Name: %[^,], Mobile: %[^,], Email: %[^,], Favorite:%d\n",
-                  contacts[count].name, contacts[count].mobile, contacts[count].email, &contacts[count].favorite) == 4) {
-        count++;
-    }
-    fclose(file);
-
-    if (count == 0) {
-        printf("No contacts found in the phonebook.\n");
-        return;
-    }
-
-    printf("Favorite Contacts in the Phonebook:\n");
-    printf("------------------------------------\n");
-    int favoriteCount = 0;
-
-    // Display favorite contacts
-    for (int i = 0; i < count; i++) {
-        if (contacts[i].favorite == 1) {
-            printf("Name: %s, Mobile: %s, Email: %s\n",
-                   contacts[i].name, contacts[i].mobile, contacts[i].email);
-            favoriteCount++;
-        }
-    }
-
-    if (favoriteCount == 0) {
-        printf("No favorite contacts found.\n");
-        return;
-    }
-
-    // Ask user if they want to unmark any favorite contact
-    char choice[10];
-    printf("\nDo you want to unmark any favorite contact? (yes/no): ");
-    while (getchar() != '\n'); // Clear input buffer
-    fgets(choice, sizeof(choice), stdin);
-    choice[strcspn(choice, "\n")] = '\0'; // Remove newline
-
-    if (strcmp(choice, "yes") == 0) {
-        char searchItem[50], searchItemLower[50];
-        int found = 0;
-
-        printf("Enter the name or mobile number of the contact you want to unmark as favorite: ");
-        fgets(searchItem, sizeof(searchItem), stdin);
-        searchItem[strcspn(searchItem, "\n")] = '\0';
-        toLowerCase(searchItem, searchItemLower);
-
-        // Update contacts
-        for (int i = 0; i < count; i++) {
-            char nameLower[50], mobileLower[20];
-            toLowerCase(contacts[i].name, nameLower);
-            toLowerCase(contacts[i].mobile, mobileLower);
-
-            if (strstr(nameLower, searchItemLower) != NULL || strstr(mobileLower, searchItemLower) != NULL) {
-                found = 1;
-                contacts[i].favorite = 0;
-                printf("Contact %s unmarked as favorite successfully!\n", contacts[i].name);
-            }
-        }
-
-        if (!found) {
-            printf("No contact found matching: %s\n", searchItem);
-            return;
-        }
-
-        // Write updated contacts to the file
-        FILE *filewrite = fopen("contacts.txt", "w");
-        if (filewrite == NULL) {
-            printf("Error opening file!\n");
-            return;
-        }
-
-        for (int i = 0; i < count; i++) {
-            fprintf(filewrite, "Name: %s, Mobile: %s, Email: %s, Favorite:%d\n",
-                    contacts[i].name, contacts[i].mobile, contacts[i].email, contacts[i].favorite);
-        }
-        fclose(filewrite);
-        printf("Contacts file updated successfully.\n");
-    }
-}
-
-
-
