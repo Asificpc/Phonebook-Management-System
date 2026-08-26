@@ -27,5 +27,3 @@ A console-based Phonebook Management System developed in C.
 
 Compile the `phonebook.c` file using a C compiler and run the generated executable.
 
-## Author
-MD Asif Ali
